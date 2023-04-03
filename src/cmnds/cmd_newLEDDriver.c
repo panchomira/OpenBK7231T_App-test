@@ -194,29 +194,43 @@ float led_current_value_cold_or_warm = 0;
 
 
 void LED_CalculateEmulatedCool(float inCool, float *outRGB) {
-	outRGB[0] = inCool;
-	outRGB[1] = inCool;
-	outRGB[2] = inCool;
+    if (inCool <= x) { // If inCool is less than or equal to x, all three RGB LEDs turn on at 50%.
+        outRGB[0] = 0.5;
+        outRGB[1] = 0.5;
+        outRGB[2] = 0.5;
+    } else { // If inCool is greater than x, the green and blue RGB LEDs are turned on at 50%, and the red LED is turned off.
+        outRGB[0] = 0;
+        outRGB[1] = 0.5;
+        outRGB[2] = 0.5;
+    }
 }
 
 void LED_ApplyEmulatedCool(int firstChannelIndex, float chVal) {
-	float rgb[3];
-	LED_CalculateEmulatedCool(chVal, rgb);
-	CHANNEL_Set_FloatPWM(firstChannelIndex + 0, rgb[0], CHANNEL_SET_FLAG_SKIP_MQTT | CHANNEL_SET_FLAG_SILENT);
-	CHANNEL_Set_FloatPWM(firstChannelIndex + 1, rgb[1], CHANNEL_SET_FLAG_SKIP_MQTT | CHANNEL_SET_FLAG_SILENT);
-	CHANNEL_Set_FloatPWM(firstChannelIndex + 2, rgb[2], CHANNEL_SET_FLAG_SKIP_MQTT | CHANNEL_SET_FLAG_SILENT);
+    float rgb[3];
+    LED_CalculateEmulatedCool(chVal, rgb);
+    CHANNEL_Set_FloatPWM(firstChannelIndex + 0, rgb[0], CHANNEL_SET_FLAG_SKIP_MQTT | CHANNEL_SET_FLAG_SILENT);
+    CHANNEL_Set_FloatPWM(firstChannelIndex + 1, rgb[1], CHANNEL_SET_FLAG_SKIP_MQTT | CHANNEL_SET_FLAG_SILENT);
+    CHANNEL_Set_FloatPWM(firstChannelIndex + 2, rgb[2], CHANNEL_SET_FLAG_SKIP_MQTT | CHANNEL_SET_FLAG_SILENT);
 }
 
 void LED_I2CDriver_WriteRGBCW(float* finalRGBCW) {
 #ifdef ENABLE_DRIVER_LED
-	if (CFG_HasFlag(OBK_FLAG_LED_EMULATE_COOL_WITH_RGB)) {
-		if (g_lightMode == Light_Temperature) {
-			// the format is RGBCW
-			// Emulate C with RGB
-			LED_CalculateEmulatedCool(finalRGBCW[3], finalRGBCW);
-			// C is unused
-			finalRGBCW[3] = 0;
-			// keep W unchanged
+    if (CFG_HasFlag(OBK_FLAG_LED_EMULATE_COOL_WITH_RGB)) {
+        if (g_lightMode == Light_Temperature) {
+            // the format is RGBCW
+            // Emulate C with RGB
+            finalRGBCW[0] = finalRGBCW[1] = finalRGBCW[2] = finalRGBCW[3];
+            LED_CalculateEmulatedCool(finalRGBCW[3], finalRGBCW);
+            // C is unused
+            finalRGBCW[3] = 0;
+            // keep W at maximum
+            finalRGBCW[4] = 1.0;
+            // set RGB values
+            CHANNEL_Set_FloatPWM(0, finalRGBCW[0], CHANNEL_SET_FLAG_SKIP_MQTT | CHANNEL_SET_FLAG_SILENT);
+            CHANNEL_Set_FloatPWM(1, finalRGBCW[1], CHANNEL_SET_FLAG_SKIP_MQTT | CHANNEL_SET_FLAG_SILENT);
+            CHANNEL_Set_FloatPWM(2, finalRGBCW[2], CHANNEL_SET_FLAG_SKIP_MQTT | CHANNEL_SET_FLAG_SILENT);
+            // set white value
+            CHANNEL_Set_FloatPWM(3, 1.0, CHANNEL_SET_FLAG_SKIP_MQTT | CHANNEL_SET_FLAG_SILENT);
 		}
 	}
 	if (DRV_IsRunning("SM2135")) {
